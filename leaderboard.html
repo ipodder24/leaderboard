@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaderboard App (Firebase)</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js"></script>
+  <style>
+    table { border-collapse: collapse; width: 80%; margin: 20px auto; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f4f4f4; }
+    .gold { background-color: gold; }
+    .silver { background-color: silver; }
+    .bronze { background-color: #cd7f32; }
+    button { padding: 4px 8px; margin: 2px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2 style="text-align:center;">🏆 Shared Leaderboard</h2>
+  <button onclick="addMatch()">➕ Add Match</button>
+  <button onclick="addPlayer()">➕ Add Player</button>
+  <table id="leaderboard">
+    <thead>
+      <tr>
+        <th>Player Name</th>
+        <th class="match">Match 1</th>
+        <th>Total</th>
+        <th>Rank</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="leaderboardBody"></tbody>
+  </table>
+
+  <script>
+    // 🔹 Your Firebase config (with databaseURL added)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCXZnKKSliUvQ-nZHTpalxqQ42MPH3Xq-k",
+      authDomain: "leaderboard-c0ca8.firebaseapp.com",
+      projectId: "leaderboard-c0ca8",
+      storageBucket: "leaderboard-c0ca8.firebasestorage.app",
+      messagingSenderId: "919135072883",
+      appId: "1:919135072883:web:4e3c047f3f6ed576cdb006",
+      measurementId: "G-E9DTQ8G7WE",
+      databaseURL: "https://leaderboard-c0ca8-default-rtdb.firebaseio.com"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const leaderboardRef = db.ref("leaderboard");
+
+    // Listen for changes
+    leaderboardRef.on("value", snapshot => {
+      const data = snapshot.val() || [];
+      renderLeaderboard(data);
+    });
+
+    function renderLeaderboard(data) {
+      const tbody = document.getElementById("leaderboardBody");
+      tbody.innerHTML = "";
+      let totals = [];
+
+      data.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        row.forEach((cellData, idx) => {
+          const td = document.createElement("td");
+          td.contentEditable = idx < row.length - 1 ? "true" : "false";
+          td.innerText = cellData;
+          td.oninput = () => {
+            row[idx] = td.innerText;
+            leaderboardRef.set(data);
+          };
+          tr.appendChild(td);
+        });
+
+        // Remove button
+        const removeCell = tr.insertCell(tr.cells.length);
+        const btn = document.createElement("button");
+        btn.innerText = "❌ Remove";
+        btn.onclick = () => {
+          data.splice(i, 1);
+          leaderboardRef.set(data);
+        };
+        removeCell.appendChild(btn);
+
+        tbody.appendChild(tr);
+
+        // Calculate totals
+        let total = 0;
+        for (let j = 1; j < row.length - 3; j++) {
+          total += parseInt(row[j]) || 0;
+        }
+        tr.cells[row.length - 3].innerText = total;
+        totals.push({ row: tr, total });
+      });
+
+      // Rank players
+      totals.sort((a, b) => b.total - a.total);
+      totals.forEach((item, index) => {
+        item.row.cells[item.row.cells.length - 2].innerText = index + 1;
+        item.row.className = "";
+        if (index === 0) item.row.className = "gold";
+        else if (index === 1) item.row.className = "silver";
+        else if (index === 2) item.row.className = "bronze";
+      });
+    }
+
+    function addPlayer() {
+      leaderboardRef.once("value").then(snapshot => {
+        const data = snapshot.val() || [];
+        const matchCount = document.querySelectorAll(".match").length;
+        let newRow = ["New Player"];
+        for (let i = 0; i < matchCount; i++) newRow.push("");
+        newRow.push("", ""); // Total, Rank
+        data.push(newRow);
+        leaderboardRef.set(data);
+      });
+    }
+
+    function addMatch() {
+      leaderboardRef.once("value").then(snapshot => {
+        const data = snapshot.val() || [];
+        // Add new match column to header
+        const headerRow = document.querySelector("thead tr");
+        const newHeader = document.createElement("th");
+        newHeader.className = "match";
+        newHeader.innerText = "Match " + (document.querySelectorAll(".match").length + 1);
+        headerRow.insertBefore(newHeader, headerRow.cells[headerRow.cells.length - 3]);
+        // Add empty cell for each player
+        data.forEach(row => row.splice(row.length - 3, 0, ""));
+        leaderboardRef.set(data);
+      });
+    }
+  </script>
+</body>
+</html>
